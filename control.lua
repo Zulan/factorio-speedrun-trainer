@@ -9,7 +9,7 @@ function gui_create(player)
     local frame_control = frame_flow.add {
         type = "frame",
         direction = "vertical",
-        caption = "Training History"
+        caption = "Speedrun Trainer"
     }
 
     gui.label_status = frame_control.add {type = "label", caption = ""}

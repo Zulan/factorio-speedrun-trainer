@@ -6,6 +6,7 @@
         "game",
         "defines",
         "script",
-        "global"
+        "global",
+        "table_size"
     ]
 }
