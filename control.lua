@@ -6,79 +6,246 @@ function gui_create(player)
     local gui = global.gui[player.index]
     local frame_flow = mod_gui.get_frame_flow(player)
 
-    local control_frame = frame_flow.add {
+    local frame_control = frame_flow.add {
         type = "frame",
         direction = "vertical"
     }
-    control_frame.add {type = "label", caption = "Speedrun Trainer"}
-
-    gui.button_start = control_frame.add {type = "button", caption = "start"}
-    gui.button_stop = control_frame.add {
-        type = "button",
-        caption = "stop",
-        visible = false
-    }
-    gui.label_status = control_frame.add {type = "label", caption = ""}
-
-    gui.label_time_active = control_frame.add {
+    frame_control.add {
         type = "label",
-        caption = "0.0",
+        caption = "Speedrun Trainer",
+        style = "caption_label"
+    }
+
+    flow_buttons = frame_control.add {type = "flow", direction = "horizontal"}
+
+    gui.button_history = flow_buttons.add {type = "button", caption = "history"}
+    gui.button_history.style.width = 80
+    gui.button_start = flow_buttons.add {type = "button", caption = "start"}
+    gui.button_start.style.width = 80
+    gui.button_stop = flow_buttons.add {type = "button", caption = "stop"}
+    gui.button_stop.style.width = 80
+    gui.button_reset = flow_buttons.add {type = "button", caption = "reset"}
+    gui.button_reset.style.width = 80
+
+    gui.label_status = frame_control.add {type = "label", caption = ""}
+
+    local table_info = frame_control.add {type = "table", column_count = 2}
+
+    width = 120
+
+    table_info.add {type = "label", caption = "Task"}
+    gui.input_task = table_info.add {type = "textfield", text = "default task"}
+    gui.input_task.style.width = width
+
+    table_info.add {type = "label", caption = "Method"}
+    gui.input_method = table_info.add {
+        type = "textfield",
+        text = "default method"
+    }
+    gui.input_method.style.width = width
+
+    table_info.add {type = "label", caption = "Entities"}
+    gui.label_entities = table_info.add {
+        type = "label",
+        style = "caption_label"
+    }
+    gui.label_entities.style.horizontal_align = "right"
+    gui.label_entities.style.width = width
+
+    table_info.add {type = "label", caption = "Mistakes"}
+    gui.label_mistakes = table_info.add {
+        type = "label",
+        style = "caption_label"
+    }
+    gui.label_mistakes.style.horizontal_align = "right"
+    gui.label_mistakes.style.width = width
+
+    table_info.add {type = "label", caption = "Time"}
+    gui.label_time = table_info.add {
+        type = "label",
         style = "large_caption_label"
     }
-    gui.label_time_active.style.horizontal_align = "right"
-    gui.label_time_active.style.minimal_width = 120
+    gui.label_time.style.horizontal_align = "right"
+    gui.label_time.style.width = width
 
-    gui.label_time_real = control_frame.add {
-        type = "label",
-        caption = "0.0",
-        style = "large_caption_label"
+    gui_control_update(player)
+
+    -- History gui
+
+    gui.frame_history = frame_flow.add {
+        type = "frame",
+        direction = "vertical",
+        visible = "false"
     }
-    gui.label_time_real.style.horizontal_align = "right"
-    gui.label_time_real.style.minimal_width = 120
+    gui.frame_history.add {
+        type = "label",
+        caption = "Training History",
+        style = "caption_label"
+    }
+    gui.pane_history = gui.frame_history.add {type = "scroll-pane"}
+    gui_history_update(player)
 end
 
 function show_time(label, ticks)
     label.caption = string.format("%.1f", ticks / 60.0)
 end
 
-function gui_update(player)
+-- Because lua doesn't have that? Really.
+function table_size(table)
+    local count = 0
+    for _, __ in pairs(table) do
+        count = count + 1
+    end
+    return count
+end
+
+function gui_control_update(player)
     local gui = global.gui[player.index]
     local state = global.state[player.index]
     if state.running then
-        show_time(gui.label_time_active, state.tick_active - state.tick_start)
-        show_time(gui.label_time_real, game.tick - state.tick_start)
+        show_time(gui.label_time, game.tick - state.tick_start)
+    else
+        show_time(gui.label_time, state.tick_active - state.tick_start)
     end
+    gui.label_mistakes.caption = string.format("%d", state.mistakes)
+    gui.label_entities.caption = string.format("%d", table_size(state.entities))
+
+    if state.waiting_for_events then
+        gui.button_start.visible = false
+        gui.button_stop.visible = true
+        gui.button_reset.visible = false
+        gui.label_status.caption = "waiting for events"
+    elseif state.running then
+        gui.button_start.visible = false
+        gui.button_stop.visible = true
+        gui.button_reset.visible = false
+        gui.label_status.caption = "GO!"
+    elseif table_size(state.entities) > 0 then
+        gui.button_start.visible = false
+        gui.button_stop.visible = false
+        gui.button_reset.visible = true
+        gui.label_status.caption = string.format("placed %d entities",
+                                                 table_size(state.entities))
+    else
+        gui.button_start.visible = true
+        gui.button_stop.visible = false
+        gui.button_reset.visible = false
+        gui.label_status.caption = "ready"
+    end
+end
+
+function gui_history_update(player)
+    local gui = global.gui[player.index]
+    if gui.table_history then
+        gui.table_history.destroy()
+    end
+    gui.table_history = gui.pane_history.add {
+        type = "table",
+        column_count = #history_properties,
+        style = "bordered_table"
+    }
+    for _, property in pairs(history_properties) do
+        gui.table_history.add {
+            type = "label",
+            caption = property,
+            style = "caption_label"
+        }
+    end
+    for _, entry in pairs(global.history) do
+        for _, property in pairs(history_properties) do
+            local caption = entry[property]
+            if property == "time" then
+                caption = string.format("%.1f", caption)
+            end
+            gui.table_history.add {type = "label", caption = caption}
+        end
+    end
+end
+
+function player_init(player)
+    global.state[player.index] = {}
+    state_reset(global.state[player.index])
+    gui_create(player)
 end
 
 script.on_init(function()
     global.gui = {}
     global.state = {}
+    global.history = {}
     for _, player in pairs(game.players) do
-        gui_create(player)
+        player_init(player)
     end
 end)
 
+function state_reset(state)
+    state.waiting_for_events = false
+    state.running = false
+    state.tick_start = 0
+    state.tick_active = 0
+    state.mistakes = 0
+    state.entities = {}
+    state.entity_count = 0
+    state.starting_position = nil
+end
+
+history_properties = {
+    "player",
+    "task",
+    "method",
+    "entities",
+    "mistakes",
+    "time"
+}
+
+function history_collect(player)
+    local state = global.state[player.index]
+    local gui = global.gui[player.index]
+
+    entry = {
+        player = player.name,
+        task = gui.input_task.text,
+        method = gui.input_method.text,
+        time = (state.tick_active - state.tick_start) / 60,
+        entities = table_size(state.entities),
+        mistakes = state.mistakes
+    }
+    table.insert(global.history, entry)
+    gui_history_update(player)
+end
+
 script.on_event(defines.events.on_player_created, function(event)
-    gui_create(game.get_player(event.player_index))
-    global.state[event.player_index] = {}
+    player_init(game.get_player(event.player_index))
 end)
 
 script.on_event(defines.events.on_gui_click, function(event)
     local clicked_element = event.element
     local state = global.state[event.player_index]
     local gui = global.gui[event.player_index]
+    local player = game.get_player(event.player_index)
     if clicked_element == gui.button_start then
-        gui.button_start.visible = false
-        gui.button_stop.visible = true
-        gui.label_status.caption = "waiting for events"
+        state_reset(state)
+        state.starting_position = player.position
         state.waiting_for_events = true
     elseif clicked_element == gui.button_stop then
+        state.running = false
+        history_collect(player)
+    elseif clicked_element == gui.button_reset then
+        local inventory = player.get_main_inventory()
+        for _, entity in pairs(state.entities) do
+            inventory.insert({name = entity.name})
+            entity.destroy()
+        end
+        player.teleport(state.starting_position)
+        state_reset(state)
+    elseif clicked_element == gui.button_history then
+        gui.frame_history.visible = not gui.frame_history.visible
     end
+    gui_control_update(player)
 end)
 
 script.on_nth_tick(1, function(event)
     for _, player in pairs(game.players) do
-        gui_update(player)
+        gui_control_update(player)
     end
 end)
 
@@ -107,14 +274,29 @@ script.on_event({
 
     local state = global.state[event.player_index]
     local gui = global.gui[event.player_index]
+    local player = game.get_player(event.player_index)
 
     if state.waiting_for_events then
         gui.label_status.caption = "GO!"
         state.waiting_for_events = false
         state.running = true
         state.tick_start = game.tick
+    end
+
+    -- NOT elseif! First entity placed does count!
+    if state.running then
         state.tick_active = game.tick
-    elseif state.running then
-        state.tick_active = game.tick
+        if event.name == defines.events.on_player_mined_entity then
+            local entity = event.entity
+            if state.entities[entity.unit_number] then
+                state.mistakes = state.mistakes + 1
+                state.entities[entity.unit_number] = nil
+                state.entity_count = state.entity_count - 1
+            end
+        elseif event.name == defines.events.on_built_entity then
+            local entity = event.created_entity
+            state.entities[entity.unit_number] = entity
+            state.entity_count = state.entity_count + 1
+        end
     end
 end)
