@@ -8,30 +8,15 @@ function gui_create(player)
 
     local frame_control = frame_flow.add {
         type = "frame",
-        direction = "vertical"
+        direction = "vertical",
+        caption = "Training History"
     }
-    frame_control.add {
-        type = "label",
-        caption = "Speedrun Trainer",
-        style = "caption_label"
-    }
-
-    flow_buttons = frame_control.add {type = "flow", direction = "horizontal"}
-
-    gui.button_history = flow_buttons.add {type = "button", caption = "history"}
-    gui.button_history.style.width = 80
-    gui.button_start = flow_buttons.add {type = "button", caption = "start"}
-    gui.button_start.style.width = 80
-    gui.button_stop = flow_buttons.add {type = "button", caption = "stop"}
-    gui.button_stop.style.width = 80
-    gui.button_reset = flow_buttons.add {type = "button", caption = "reset"}
-    gui.button_reset.style.width = 80
 
     gui.label_status = frame_control.add {type = "label", caption = ""}
 
     local table_info = frame_control.add {type = "table", column_count = 2}
 
-    width = 120
+    width = 160
 
     table_info.add {type = "label", caption = "Task"}
     gui.input_task = table_info.add {type = "textfield", text = "default task"}
@@ -68,35 +53,48 @@ function gui_create(player)
     gui.label_time.style.horizontal_align = "right"
     gui.label_time.style.width = width
 
+    flow_buttons = frame_control.add {type = "flow", direction = "horizontal"}
+
+    button_width = 70
+    gui.button_history = flow_buttons.add {type = "button", caption = "history"}
+    gui.button_history.style.width = button_width
+    gui.button_start = flow_buttons.add {type = "button", caption = "start"}
+    gui.button_start.style.width = button_width
+    gui.button_cancel = flow_buttons.add {type = "button", caption = "cancel"}
+    gui.button_cancel.style.width = button_width
+    gui.button_stop = flow_buttons.add {type = "button", caption = "stop"}
+    gui.button_stop.style.width = button_width
+    gui.button_reset = flow_buttons.add {type = "button", caption = "reset"}
+    gui.button_reset.style.width = button_width
+
     gui_control_update(player)
 
     -- History gui
 
-    gui.frame_history = frame_flow.add {
+    gui.frame_history = player.gui.screen.add {
         type = "frame",
         direction = "vertical",
-        visible = "false"
-    }
-    gui.frame_history.add {
-        type = "label",
-        caption = "Training History",
-        style = "caption_label"
+        visible = "false",
+        caption = "Training History"
     }
     gui.pane_history = gui.frame_history.add {type = "scroll-pane"}
+    gui.pane_history.style.maximal_height = 800
+
+    local gui_flow_history_controls = gui.frame_history.add {
+        type = "flow",
+        direction = "horizontal"
+    }
+    gui.button_history_clear = gui_flow_history_controls.add {
+        type = "button",
+        caption = "clear"
+    }
+
     gui_history_update(player)
+    gui.frame_history.force_auto_center()
 end
 
 function show_time(label, ticks)
     label.caption = string.format("%.1f", ticks / 60.0)
-end
-
--- Because lua doesn't have that? Really.
-function table_size(table)
-    local count = 0
-    for _, __ in pairs(table) do
-        count = count + 1
-    end
-    return count
 end
 
 function gui_control_update(player)
@@ -112,22 +110,26 @@ function gui_control_update(player)
 
     if state.waiting_for_events then
         gui.button_start.visible = false
-        gui.button_stop.visible = true
+        gui.button_stop.visible = false
+        gui.button_cancel.visible = true
         gui.button_reset.visible = false
         gui.label_status.caption = "waiting for events"
     elseif state.running then
         gui.button_start.visible = false
+        gui.button_cancel.visible = true
         gui.button_stop.visible = true
         gui.button_reset.visible = false
         gui.label_status.caption = "GO!"
     elseif table_size(state.entities) > 0 then
         gui.button_start.visible = false
+        gui.button_cancel.visible = false
         gui.button_stop.visible = false
         gui.button_reset.visible = true
         gui.label_status.caption = string.format("placed %d entities",
                                                  table_size(state.entities))
     else
         gui.button_start.visible = true
+        gui.button_cancel.visible = false
         gui.button_stop.visible = false
         gui.button_reset.visible = false
         gui.label_status.caption = "ready"
@@ -226,19 +228,26 @@ script.on_event(defines.events.on_gui_click, function(event)
         state_reset(state)
         state.starting_position = player.position
         state.waiting_for_events = true
+    elseif clicked_element == gui.button_cancel then
+        state.running = false
     elseif clicked_element == gui.button_stop then
         state.running = false
         history_collect(player)
     elseif clicked_element == gui.button_reset then
         local inventory = player.get_main_inventory()
         for _, entity in pairs(state.entities) do
-            inventory.insert({name = entity.name})
-            entity.destroy()
+            if entity.valid then
+                inventory.insert({name = entity.name})
+                entity.destroy()
+            end
         end
         player.teleport(state.starting_position)
         state_reset(state)
     elseif clicked_element == gui.button_history then
         gui.frame_history.visible = not gui.frame_history.visible
+    elseif clicked_element == gui.button_history_clear then
+        global.history = {}
+        gui_history_update(player)
     end
     gui_control_update(player)
 end)
