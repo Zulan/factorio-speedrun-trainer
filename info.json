@@ -1,0 +1,11 @@
+{
+    "name": "speedrun-trainer",
+    "version": "0.0.0",
+    "title": "Speedrun Trainer",
+    "author": "Zulan",
+    "contact": "",
+    "homepage": "",
+    "factorio_version": "0.18",
+    "dependencies": ["base >= 0.18"],
+    "description": "Helps you train game mechanics for speedruns."
+}
