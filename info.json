@@ -4,10 +4,10 @@
     "title": "Speedrun Trainer",
     "author": "Zulan",
     "contact": "",
-    "homepage": "",
+    "homepage": "https://github.com/Zulan/factorio-speedrun-trainer",
     "factorio_version": "0.18",
     "dependencies": [
-        "base >= 0.18"
+        "base >= 0.18.30"
     ],
     "description": "Helps you train game mechanics for speedruns."
 }

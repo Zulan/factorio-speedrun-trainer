@@ -46,10 +46,7 @@ function gui_create(player)
     gui.label_mistakes.style.width = width
 
     table_info.add {type = "label", caption = "Time"}
-    gui.label_time = table_info.add {
-        type = "label",
-        style = "large_caption_label"
-    }
+    gui.label_time = table_info.add {type = "label", style = "caption_label"}
     gui.label_time.style.horizontal_align = "right"
     gui.label_time.style.width = width
 
