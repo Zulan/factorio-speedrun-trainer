@@ -213,4 +213,50 @@ gui.render_history = function(player)
     end
 end
 
+gui.toggle_history = function(player)
+    local gui_frames = global.gui_frames[player.index]
+    gui_frames.history.visible = not gui_frames.history.visible
+end
+
+gui.on_click = function(event)
+    local clicked_element = event.element
+    local state = global.state[event.player_index]
+    local gui_elements = global.gui_elements[event.player_index]
+    local player = game.get_player(event.player_index)
+    if clicked_element == gui_elements.button_start then
+        state_reset(state)
+        state.starting_position = player.position
+        state.waiting_for_events = true
+    elseif clicked_element == gui_elements.button_cancel then
+        state.running = false
+    elseif clicked_element == gui_elements.button_stop then
+        state.running = false
+        history_collect(player)
+    elseif clicked_element == gui_elements.button_reset then
+        local inventory = player.get_main_inventory()
+        for _, entity in pairs(state.entities) do
+            if entity.valid then
+                inventory.insert({name = entity.name})
+                entity.destroy()
+            end
+        end
+        player.teleport(state.starting_position)
+        state_reset(state)
+    elseif clicked_element == gui_elements.button_history then
+        gui.toggle_history(player)
+    elseif clicked_element == gui_elements.button_history_clear then
+        global.history = {}
+        gui.render_history(player)
+    end
+    gui.render_controls(player)
+end
+
+gui.input_properties = function(player)
+    local gui_elements = global.gui_elements[player.index]
+    return {
+        task = gui_elements.input_task.text,
+        method = gui_elements.input_method.text
+    }
+end
+
 return gui
