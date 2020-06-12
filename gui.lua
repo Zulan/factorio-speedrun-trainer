@@ -1,4 +1,5 @@
 local mod_gui = require("mod-gui")
+local history_properties = require("history-properties")
 
 -- Helpers
 function show_time(label, ticks)
@@ -148,6 +149,7 @@ end
 gui.render_controls = function(player)
     local gui_elements = global.gui_elements[player.index]
     local state = global.state[player.index]
+
     if state.running then
         show_time(gui_elements.label_time, game.tick - state.tick_start)
     else
@@ -187,6 +189,8 @@ end
 
 gui.render_history = function(player)
     local gui_elements = global.gui_elements[player.index]
+    local history_grouping = global.history_grouping[player.index]
+
     if gui_elements.table_history then
         gui_elements.table_history.destroy()
     end
@@ -195,20 +199,46 @@ gui.render_history = function(player)
         column_count = #history_properties,
         style = "bordered_table"
     }
+    gui_elements.table_history_grouping = {}
     for _, property in pairs(history_properties) do
-        gui_elements.table_history.add {
-            type = "label",
-            caption = property,
-            style = "caption_label"
-        }
+        if property.groupable then
+            gui_elements.table_history_grouping[property] =
+                gui_elements.table_history.add {
+                    type = "checkbox",
+                    caption = property.name,
+                    -- toboolean would be too hard to be in the standard library
+                    state = (history_grouping[property.name] and true) or false
+                }
+        else
+            gui_elements.table_history.add {
+                type = "label",
+                caption = property.name,
+                style = "caption_label"
+            }
+        end
     end
-    for _, entry in pairs(global.history) do
-        for _, property in pairs(history_properties) do
-            local caption = entry[property]
-            if property == "time" then
-                caption = string.format("%.1f", caption)
+    if table_size(history_grouping) == 0 then
+        for _, entry in global.history:pairs() do
+            for _, property in pairs(history_properties) do
+                local caption = entry[property.name]
+                if property.format ~= nil then
+                    caption = property.format(caption)
+                end
+                gui_elements.table_history.add {
+                    type = "label",
+                    caption = caption
+                }
             end
-            gui_elements.table_history.add {type = "label", caption = caption}
+        end
+    else
+        for _, entry in pairs(global.history:group_by(history_grouping)) do
+            for _, property in pairs(history_properties) do
+                local caption = entry:summary(property.name, property.format)
+                gui_elements.table_history.add {
+                    type = "label",
+                    caption = caption
+                }
+            end
         end
     end
 end
@@ -216,39 +246,6 @@ end
 gui.toggle_history = function(player)
     local gui_frames = global.gui_frames[player.index]
     gui_frames.history.visible = not gui_frames.history.visible
-end
-
-gui.on_click = function(event)
-    local clicked_element = event.element
-    local state = global.state[event.player_index]
-    local gui_elements = global.gui_elements[event.player_index]
-    local player = game.get_player(event.player_index)
-    if clicked_element == gui_elements.button_start then
-        state_reset(state)
-        state.starting_position = player.position
-        state.waiting_for_events = true
-    elseif clicked_element == gui_elements.button_cancel then
-        state.running = false
-    elseif clicked_element == gui_elements.button_stop then
-        state.running = false
-        history_collect(player)
-    elseif clicked_element == gui_elements.button_reset then
-        local inventory = player.get_main_inventory()
-        for _, entity in pairs(state.entities) do
-            if entity.valid then
-                inventory.insert({name = entity.name})
-                entity.destroy()
-            end
-        end
-        player.teleport(state.starting_position)
-        state_reset(state)
-    elseif clicked_element == gui_elements.button_history then
-        gui.toggle_history(player)
-    elseif clicked_element == gui_elements.button_history_clear then
-        global.history = {}
-        gui.render_history(player)
-    end
-    gui.render_controls(player)
 end
 
 gui.input_properties = function(player)

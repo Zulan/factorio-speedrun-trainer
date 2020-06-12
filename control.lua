@@ -1,29 +1,54 @@
 local gui = require("gui")
-
--- Of course lua woudln't just have something nice like **python
-function table_merge(t1, t2)
-    for k, v in pairs(t2) do
-        t1[k] = v
-    end
-    return t1
-end
+local table_merge = require("utils.table_merge")
+local DataFrame = require("utils.DataFrame")
+local migrations = require("migrations")
 
 function player_init(player)
     global.state[player.index] = {}
+    global.history_grouping[player.index] = {}
     state_reset(global.state[player.index])
     gui.regen(player)
 end
 
-script.on_init(function()
-    gui.init()
+function init()
     global.state = {}
-    global.history = {}
+    global.history = DataFrame:new()
+    global.history_grouping = {}
+
+    gui.init()
+
     for _, player in pairs(game.players) do
         player_init(player)
     end
+
+end
+
+script.on_init(init)
+
+script.on_load(function()
+    DataFrame:refresh(global.history)
 end)
 
 script.on_configuration_changed(function(configuration_changed_data)
+    local old_version_str =
+        configuration_changed_data.mod_changes['speedrun-trainer'].old_version
+    if (old_version_str == nil) then
+        -- We don't care about vanilla saves, that's taken care by on_init
+        return
+    end
+
+    local old_major_str, old_minor_str, old_patch_str =
+        string.match(old_version_str, "(%d+)%.(%d+)%.(%d+)")
+    local old_version = {
+        major = tonumber(old_major_str),
+        minor = tonumber(old_minor_str),
+        patch = tonumber(old_patch_str)
+    }
+
+    if old_version.major < 1 then
+        migrations["1.0.0"]()
+    end
+
     for _, player in pairs(game.players) do
         gui.regen(player)
     end
@@ -40,14 +65,9 @@ function state_reset(state)
     state.starting_position = nil
 end
 
-history_properties = {
-    "player",
-    "task",
-    "method",
-    "entities",
-    "mistakes",
-    "time"
-}
+script.on_event(defines.events.on_player_created, function(event)
+    player_init(game.get_player(event.player_index))
+end)
 
 function history_collect(player)
     local state = global.state[player.index]
@@ -58,16 +78,56 @@ function history_collect(player)
         entities = table_size(state.entities),
         mistakes = state.mistakes
     }, gui.input_properties(player))
-    table.insert(global.history, entry)
+
+    global.history:append(entry)
+
     gui.render_history(player)
 end
 
-script.on_event(defines.events.on_player_created, function(event)
-    player_init(game.get_player(event.player_index))
-end)
-
 script.on_event(defines.events.on_gui_click, function(event)
-    gui.on_click(event)
+    local clicked_element = event.element
+    local state = global.state[event.player_index]
+    local gui_elements = global.gui_elements[event.player_index]
+    local history_grouping = global.history_grouping[event.player_index]
+    local player = game.get_player(event.player_index)
+    if clicked_element == gui_elements.button_start then
+        state_reset(state)
+        state.starting_position = player.position
+        state.waiting_for_events = true
+    elseif clicked_element == gui_elements.button_cancel then
+        state.running = false
+    elseif clicked_element == gui_elements.button_stop then
+        state.running = false
+        history_collect(player)
+    elseif clicked_element == gui_elements.button_reset then
+        local inventory = player.get_main_inventory()
+        for _, entity in pairs(state.entities) do
+            if entity.valid then
+                inventory.insert({name = entity.name})
+                entity.destroy()
+            end
+        end
+        player.teleport(state.starting_position)
+        state_reset(state)
+    elseif clicked_element == gui_elements.button_history then
+        gui.toggle_history(player)
+    elseif clicked_element == gui_elements.button_history_clear then
+        global.history:clear()
+        gui.render_history(player)
+    else
+        for property, checkbox in pairs(gui_elements.table_history_grouping) do
+            if clicked_element == checkbox then
+                if checkbox.state then
+                    history_grouping[property.name] = property.name
+                else
+                    history_grouping[property.name] = nil
+                end
+                gui.render_history(player)
+                break
+            end
+        end
+    end
+    gui.render_controls(player)
 end)
 
 script.on_nth_tick(1, function(event)
