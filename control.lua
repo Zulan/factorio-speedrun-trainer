@@ -135,7 +135,7 @@ script.on_event(defines.events.on_gui_click, function(event)
     gui.render_controls(player)
 end)
 
-script.on_nth_tick(1, function(event)
+script.on_event(defines.events.on_tick, function(event)
     for _, player in pairs(game.players) do
         gui.render_controls(player)
     end
