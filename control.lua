@@ -1,5 +1,5 @@
+local util = require("util") -- from data\core\lualib\
 local gui = require("gui")
-local table_merge = require("utils.table_merge")
 local DataFrame = require("utils.DataFrame")
 local migrations = require("migrations")
 
@@ -72,12 +72,12 @@ end)
 function history_collect(player)
     local state = global.state[player.index]
 
-    entry = table_merge({
+    entry = util.merge({{
         player = player.name,
         time = (state.tick_active - state.tick_start) / 60,
         entities = table_size(state.entities),
         mistakes = state.mistakes
-    }, gui.input_properties(player))
+    }, gui.input_properties(player)})
 
     global.history:append(entry)
 
@@ -135,7 +135,7 @@ script.on_event(defines.events.on_gui_click, function(event)
     gui.render_controls(player)
 end)
 
-script.on_nth_tick(1, function(event)
+script.on_event(defines.events.on_tick, function(event)
     for _, player in pairs(game.players) do
         gui.render_controls(player)
     end
