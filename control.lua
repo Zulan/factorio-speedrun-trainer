@@ -103,7 +103,12 @@ script.on_event(defines.events.on_gui_click, function(event)
         local inventory = player.get_main_inventory()
         for _, entity in pairs(state.entities) do
             if entity.valid then
-                inventory.insert({name = entity.name})
+                local items = entity.prototype.items_to_place_this 
+                if items then
+                  for _, item in pairs(items) do 
+                    inventory.insert(item)
+                  end
+                end
                 entity.destroy()
             end
         end
