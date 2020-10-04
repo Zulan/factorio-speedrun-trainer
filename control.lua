@@ -20,7 +20,7 @@ function init()
     for _, player in pairs(game.players) do
         player_init(player)
     end
-
+    
 end
 
 script.on_init(init)
@@ -66,7 +66,9 @@ function state_reset(state)
 end
 
 script.on_event(defines.events.on_player_created, function(event)
-    player_init(game.get_player(event.player_index))
+    if not global.state[event.player_index] then
+        player_init(game.get_player(event.player_index))
+    end
 end)
 
 function history_collect(player)
@@ -165,6 +167,11 @@ script.on_event({
     end
 
     local state = global.state[event.player_index]
+    -- Other mods may cause one of these events before our on_player_created is called, e.g. the crash site cutscene
+    if not state then
+        player_init(game.get_player(event.player_index))
+        state = global.state[event.player_index]
+    end
 
     if state.waiting_for_events then
         state.waiting_for_events = false
