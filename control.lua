@@ -20,7 +20,7 @@ function init()
     for _, player in pairs(game.players) do
         player_init(player)
     end
-    
+
 end
 
 script.on_init(init)
@@ -30,15 +30,14 @@ script.on_load(function()
 end)
 
 script.on_configuration_changed(function(configuration_changed_data)
-    local old_version_str =
-        configuration_changed_data.mod_changes['speedrun-trainer'].old_version
-    if (old_version_str == nil) then
+    local mod_data = configuration_changed_data.mod_changes['speedrun-trainer']
+    if (mod_data == nil or mod_data.old_version == nil) then
         -- We don't care about vanilla saves, that's taken care by on_init
         return
     end
 
     local old_major_str, old_minor_str, old_patch_str =
-        string.match(old_version_str, "(%d+)%.(%d+)%.(%d+)")
+        string.match(mod_data.old_version, "(%d+)%.(%d+)%.(%d+)")
     local old_version = {
         major = tonumber(old_major_str),
         minor = tonumber(old_minor_str),
@@ -74,12 +73,15 @@ end)
 function history_collect(player)
     local state = global.state[player.index]
 
-    entry = util.merge({{
-        player = player.name,
-        time = (state.tick_active - state.tick_start) / 60,
-        entities = table_size(state.entities),
-        mistakes = state.mistakes
-    }, gui.input_properties(player)})
+    entry = util.merge({
+        {
+            player = player.name,
+            time = (state.tick_active - state.tick_start) / 60,
+            entities = table_size(state.entities),
+            mistakes = state.mistakes
+        },
+        gui.input_properties(player)
+    })
 
     global.history:append(entry)
 
@@ -105,11 +107,11 @@ script.on_event(defines.events.on_gui_click, function(event)
         local inventory = player.get_main_inventory()
         for _, entity in pairs(state.entities) do
             if entity.valid then
-                local items = entity.prototype.items_to_place_this 
+                local items = entity.prototype.items_to_place_this
                 if items then
-                  for _, item in pairs(items) do 
-                    inventory.insert(item)
-                  end
+                    for _, item in pairs(items) do
+                        inventory.insert(item)
+                    end
                 end
                 entity.destroy()
             end
